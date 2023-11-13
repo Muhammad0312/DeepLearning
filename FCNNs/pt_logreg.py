@@ -17,7 +17,6 @@ class PTLogreg(nn.Module):
 
   def forward(self, X):
     self.Y_ = torch.mm(X, self.W) + self.b
-    print(self.Y_.requires_grad)
     self.prob = torch.softmax(self.Y_, dim=1)
 
   def get_loss(self, X, Yoh_, param_lambda=1e-3):

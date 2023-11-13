@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 from torchviz import make_dot
+import os
 
 from data import *
 
@@ -17,22 +18,27 @@ class PTDeep(nn.Module):
         self.flag = True
     def forward(self, X):
         self.Y_ = X
-        if self.flag:
-            for i in range(self.layers):
-                print('weight gradients: ',self.weights[i].requires_grad)
-            for i in range(self.layers):
-                print('bias gradients: ',self.biases[i].requires_grad)
+        # if self.flag:
+        #     for i in range(self.layers):
+        #         print('weight gradients: ',self.weights[i].requires_grad)
+        #     for i in range(self.layers):
+        #         print('bias gradients: ',self.biases[i].requires_grad)
             
         for i in range(self.layers):
             # print(str(self.Y_.shape) + ' X ' + str(self.weights[i].shape) + ' + ' + str(self.biases[i].shape))
             self.Y_ = torch.mm(self.Y_, self.weights[i]) + self.biases[i]
-            if self.flag:
-                print('Y gradients: ', self.Y_.requires_grad)
-                self.flag = False
+            # if self.flag:
+            #     print('Y gradients: ', self.Y_.requires_grad)
+            #     self.flag = False
+
             if i != self.layers - 1:
                 self.Y_ = self.activation(self.Y_)
             else:
+                max_values, indices = torch.max(self.Y_, dim=1)
+                max_values = max_values.view(-1, 1)
+                self.Y_ = self.Y_ - max_values
                 self.prob = torch.softmax(self.Y_, dim=1)
+                # print('Probabilities: ', self.prob)
     
 
     def get_loss(self, X, Yoh_, param_lambda=1e-3):
@@ -41,7 +47,7 @@ class PTDeep(nn.Module):
         # matrix multiplied with a hyperparameter param_lambda. 
         vectorized_weights = torch.cat([self.weights[i].view(-1) for i in range(self.layers)])
         L2 = torch.norm(vectorized_weights, p=2)
-        self.loss = torch.sum(-torch.log(self.prob) * Yoh_) / X.shape[0] + 0.5 * param_lambda * L2
+        self.loss = (torch.sum(-torch.log(self.prob + 1e-10) * Yoh_) / X.shape[0]) + (param_lambda * L2)
 
 def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3):
     """Arguments:
@@ -51,21 +57,27 @@ def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3):
         - param_delta: learning rate
     """
     optimizer = optim.SGD(model.parameters(), lr=param_delta)
+    # optimizer = optim.Adam(model.parameters(), lr=param_delta)
 
     # training loop
     for i in range(param_niter):
         # forward pass
         model.forward(X)
         # loss
-        model.get_loss(X, Yoh_, param_lambda=1e-3)
+        model.get_loss(X, Yoh_, param_lambda=param_lambda)
         # backward pass
         model.loss.backward()
+        # clip gradients
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        # for name, param in model.named_parameters():
+        #     print(f"Parameter: {name} - Gradient: {param.grad}")
+        # break
         # parameter update
         optimizer.step()
         # gradient reset
         optimizer.zero_grad()
 
-        if i % 1000 == 0:
+        if i % 100 == 0:
             print(f'Iteration: {i}, loss: {model.loss}')
 
 def eval(model, X):
@@ -93,15 +105,20 @@ if __name__== "__main__":
 
     # define input data X and labels Yoh_
     # X, Y_ = sample_gauss_2d(3, 100)
-    X, Y_ = sample_gmm_2d(6, 2, 10)
+    X, Y_ = sample_gmm_2d(6, 2, 80)
     Yoh_ = class_to_onehot(Y_)
+    
 
     ptlr = PTDeep([2, 10, 10, 2], torch.relu)
 
     # learn the parameters (X and Yoh_ have to be of type torch.Tensor):
     train(ptlr, torch.Tensor(X), torch.Tensor(Yoh_), 10000, 0.01, param_lambda=1e-4)
+
+    # Get the directory of the current script to save the computation graph
+    script_directory = os.path.dirname(os.path.abspath(__file__))
     # generate computation graph
-    make_dot(ptlr.prob, params=ptlr.state_dict()).render("attached", format="png")
+    make_dot(ptlr.prob, params=ptlr.state_dict()).render("pt_deep", directory=script_directory,
+                                                          format="png", cleanup=True)
 
     # get probabilites on training data
     probs = eval(ptlr, X)
@@ -118,6 +135,3 @@ if __name__== "__main__":
     graph_surface(decfun, bbox, offset=0)
     graph_data(X, Y_, Y)
     plt.show()
-
-
-    
