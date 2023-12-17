@@ -35,11 +35,13 @@ def decfun(model):
 
 if __name__ == "__main__":
     np.random.seed(100)
-    X, Y_ = sample_gmm_2d(6, 2, 10)
+    X, Y_ = sample_gmm_2d(6, 2, 1000)
     model = KSVMWrap(X, Y_, param_svm_c=1, param_svm_gamma='auto')
     Y = model.predict(X)
     accuracy, recall, precision = eval_perf_multi(Y, Y_)
     print("Accuracy: {}, recall: {}, precision: {}".format(accuracy, recall, precision))
+    average_precision = eval_AP(Y)
+    print("Average precision: {}".format(average_precision))
 
     # visualize the results, decicion surface
     decfun = decfun(model)

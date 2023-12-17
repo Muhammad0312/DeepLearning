@@ -77,9 +77,12 @@ if __name__ == "__main__":
 
     # create the inputs and labels
     X, Y_ = sample_gmm_2d(6, 2, 10)
+    # Shape of X: (N, D) N = number of samples = ncomponents x nsamples,
+    # D = dimensionality of each sample = 2 for 2d data
+    # Shape of Y_: (N,)
 
     # train the model
-    W1, b1, W2, b2 = fcann2_train(X, Y_, param_niter=100000, param_delta=0.01, param_lambda=1e-3, param_hidden_layer_size=5)
+    W1, b1, W2, b2 = fcann2_train(X, Y_, param_niter=100000, param_delta=0.05, param_lambda=1e-3, param_hidden_layer_size=5)
 
     # print('Y_: ', Y_)
     # evaluate the model on the training dataset

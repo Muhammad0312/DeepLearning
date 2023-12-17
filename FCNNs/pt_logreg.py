@@ -25,7 +25,7 @@ class PTLogreg(nn.Module):
     # matrix multiplied with a hyperparameter param_lambda. 
     vectorized_weights = self.W.view(-1)
     L2 = torch.norm(vectorized_weights, p=2)
-    self.loss = torch.sum(-torch.log(self.prob) * Yoh_) / X.shape[0] + 0.5 * param_lambda * L2
+    self.loss = (torch.sum(-torch.log(self.prob) * Yoh_) / X.shape[0]) + 0.5 * param_lambda * L2
 
 
 def train(model, X, Yoh_, param_niter, param_delta):
@@ -44,12 +44,12 @@ def train(model, X, Yoh_, param_niter, param_delta):
     model.forward(X)
     # loss
     model.get_loss(X, Yoh_, param_lambda=1e-3)
+    # gradient reset
+    optimizer.zero_grad()
     # backward pass
     model.loss.backward()
     # parameter update
     optimizer.step()
-    # gradient reset
-    optimizer.zero_grad()
 
     if i % 1000 == 0:
       print(f'Iteration: {i}, loss: {model.loss}')
@@ -76,14 +76,14 @@ if __name__ == "__main__":
 
     # define input data X and labels Yoh_
     X, Y_ = sample_gauss_2d(3, 100)
-    # X, Y_ = sample_gmm_2d(6, 2, 10)
+    # X, Y_ = sample_gmm_2d(4, 2, 40)
     Yoh_ = class_to_onehot(Y_)
     # define the model:
     ptlr = PTLogreg(X.shape[1], Yoh_.shape[1])
     # print(list(ptlr.parameters()))
 
     # learn the parameters (X and Yoh_ have to be of type torch.Tensor):
-    train(ptlr, torch.Tensor(X), torch.Tensor(Yoh_), 100000, 0.01)
+    train(ptlr, torch.Tensor(X), torch.Tensor(Yoh_), 60000, 0.01)
 
     # get probabilites on training data
     probs = eval(ptlr, X)
