@@ -98,16 +98,27 @@ if __name__ == '__main__':
     Training functions
     '''
     # # Train with full batch
-    # train(ptlr, x_train.view(N, D), torch.Tensor(y_train_oh), 10000, 0.2)
+    print('Training with full batch')
+    stored_loss = train(ptlr, x_train.view(N, D), torch.Tensor(y_train_oh), 10000, 0.2, 0.1)
+    plt.plot(stored_loss)
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.show()
+
+    # Plot the images which contribute the most to the loss
+    image_indices = [indices[1] for indices in ptlr.most_loss_images]
+    for i in image_indices:
+        plt.imshow(x_train[i].numpy(), cmap='gray')
+        plt.show()
 
     # # Train with early stopping
     # weights, biases, loss = train_early_stop(ptlr, x_train.view(N, D), torch.Tensor(y_train_oh), 6000, 0.2, 0.1, x_validation, y_validation)
 
 
     # Train with mini-batches
-    stored_loss = train_mb(ptlr, x_train.view(N, D), torch.Tensor(y_train_oh), 2000, 0.1, 0.1, 100, optimizer=optim.SGD)
-    plt.plot(stored_loss)
-    plt.show()
+    # stored_loss = train_mb(ptlr, x_train.view(N, D), torch.Tensor(y_train_oh), 2000, 0.1, 0.1, 100, optimizer=optim.SGD)
+    # plt.plot(stored_loss)
+    # plt.show()
 
     # # Train using linear SVM
     # train_svm(x_train.view(N, D).numpy(), y_train.numpy())
@@ -120,14 +131,14 @@ if __name__ == '__main__':
     make_dot(ptlr.prob, params=ptlr.state_dict()).render("MNISTComputationGraph",
                                                         directory=script_directory, format="png", cleanup=True)
 
-    Weights = ptlr.weights
-    for i, w in enumerate(Weights):
-        for i in range(w.size(1)):
-            weight = w[:, i].detach().view(28, 28).numpy()
-            weight = (((weight - weight.min()) / (weight.max() - weight.min())) * 255.0).astype(np.uint8)
-            plt.imshow(weight, cmap='gray')
-            plt.title('Weights for class {}'.format(i))
-            plt.show()
+    # Weights = ptlr.weights
+    # for i, w in enumerate(Weights):
+    #     for i in range(w.size(1)):
+    #         weight = w[:, i].detach().view(28, 28).numpy()
+    #         weight = (((weight - weight.min()) / (weight.max() - weight.min())) * 255.0).astype(np.uint8)
+    #         plt.imshow(weight, cmap='gray')
+    #         plt.title('Weights for class {}'.format(i))
+    #         plt.show()
 
     # torch.save(ptlr.state_dict(), 'FCNNs/saved_weights/model_weights.pth')
 

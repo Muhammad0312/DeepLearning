@@ -38,18 +38,32 @@ train_y, valid_y, test_y = (dense_to_one_hot(y, 10) for y in (train_y, valid_y, 
 
 
 net = []
-inputs = np.random.randn(config['batch_size'], 1, 28, 28)
-net += [layers.Convolution(inputs, 16, 5, "conv1")]
-net += [layers.MaxPooling(net[-1], "pool1")]
-net += [layers.ReLU(net[-1], "relu1")]
-net += [layers.Convolution(net[-1], 32, 5, "conv2")]
-net += [layers.MaxPooling(net[-1], "pool2")]
-net += [layers.ReLU(net[-1], "relu2")]
-# out = 7x7
-net += [layers.Flatten(net[-1], "flatten3")]
-net += [layers.FC(net[-1], 512, "fc3")]
-net += [layers.ReLU(net[-1], "relu3")]
-net += [layers.FC(net[-1], 10, "logits")]
+inputs = np.random.randn(config['batch_size'], 1, 28, 28) 
+# Tensor size (batch_size, channels, height, width) (50, 1, 28,28)
+net += [layers.Convolution(inputs, 16, 5, "conv1")] 
+# Tensor size (batch_size, channels, height, width) (50, 16, 28, 28)
+# Params = (5*5*1+1)*16 = 416
+net += [layers.MaxPooling(net[-1], "pool1")] 
+# Tensor size (batch_size, channels, height, width) (50, 16, 14, 14)
+net += [layers.ReLU(net[-1], "relu1")] 
+# Tensor size (batch_size, channels, height, width) (50, 16, 14, 14)
+net += [layers.Convolution(net[-1], 32, 5, "conv2")] 
+# Tensor size (batch_size, channels, height, width) (50, 32, 14, 14)
+# Params = (5*5*16+1)*32 = 12832
+net += [layers.MaxPooling(net[-1], "pool2")] 
+# Tensor size (batch_size, channels, height, width) (50, 32, 7, 7)
+net += [layers.ReLU(net[-1], "relu2")] 
+# Tensor size (batch_size, channels, height, width) (50, 32, 7, 7)
+net += [layers.Flatten(net[-1], "flatten3")] 
+# Tensor size (batch_size, outputs) (50, 1568)
+net += [layers.FC(net[-1], 512, "fc3")] 
+# Tensor size (batch_size, outputs) (50, 512)
+# Params = (1568+1)*512 = 803328
+net += [layers.ReLU(net[-1], "relu3")] 
+# Tensor size (batch_size, outputs) (50, 512)
+net += [layers.FC(net[-1], 10, "logits")] 
+# Tensor size (batch_size, outputs) (50, 10)
+# Params = (512+1)*10 = 5130
 
 loss = layers.SoftmaxCrossEntropyWithLogits()
 

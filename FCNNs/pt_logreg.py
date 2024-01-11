@@ -25,10 +25,10 @@ class PTLogreg(nn.Module):
     # matrix multiplied with a hyperparameter param_lambda. 
     vectorized_weights = self.W.view(-1)
     L2 = torch.norm(vectorized_weights, p=2)
-    self.loss = (torch.sum(-torch.log(self.prob) * Yoh_) / X.shape[0]) + 0.5 * param_lambda * L2
+    self.loss = (torch.sum(-torch.log(self.prob[Yoh_ > 0])) / X.shape[0]) + 0.5 * param_lambda * L2
 
 
-def train(model, X, Yoh_, param_niter, param_delta):
+def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3):
   """Arguments:
      - X: model inputs [NxD], type: torch.Tensor
      - Yoh_: ground truth [NxC], type: torch.Tensor
@@ -43,7 +43,7 @@ def train(model, X, Yoh_, param_niter, param_delta):
     # forward pass
     model.forward(X)
     # loss
-    model.get_loss(X, Yoh_, param_lambda=1e-3)
+    model.get_loss(X, Yoh_, param_lambda)
     # gradient reset
     optimizer.zero_grad()
     # backward pass
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # print(list(ptlr.parameters()))
 
     # learn the parameters (X and Yoh_ have to be of type torch.Tensor):
-    train(ptlr, torch.Tensor(X), torch.Tensor(Yoh_), 60000, 0.01)
+    train(ptlr, torch.Tensor(X), torch.Tensor(Yoh_), 60000, 0.01, 1e-3)
 
     # get probabilites on training data
     probs = eval(ptlr, X)

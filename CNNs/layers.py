@@ -3,7 +3,6 @@ import numpy as np
 import scipy
 import scipy.stats as stats
 
-
 from im2col_cython import col2im_cython, im2col_cython
 
 zero_init = np.zeros
@@ -270,7 +269,8 @@ class SoftmaxCrossEntropyWithLogits():
     exp_x = np.exp(x - np.max(x, axis=1, keepdims=True))
     prob = exp_x / np.sum(exp_x, axis=1, keepdims=True)
     
-    return -np.mean(np.sum(y * np.log(prob), axis=1, keepdims=True))
+    # return -np.mean(np.sum(y * np.log(prob), axis=1, keepdims=True))
+    return np.mean(-np.log(prob[y > 0]))
 
   def backward_inputs(self, x, y):
     """

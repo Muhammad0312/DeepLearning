@@ -15,6 +15,8 @@ class PTDeep(nn.Module):
         self.weights = nn.ParameterList([nn.Parameter(torch.randn(config[i], config[i+1])) for i in range(self.layers)])
         self.biases = nn.ParameterList([nn.Parameter(torch.randn(1, config[i+1])) for i in range(self.layers)])
         self.activation = activation
+        self.most_loss_images = []
+        self.loss_images_num = 10
 
     def forward(self, X):
         self.Y_ = X
@@ -36,7 +38,25 @@ class PTDeep(nn.Module):
         # matrix multiplied with a hyperparameter param_lambda. 
         vectorized_weights = torch.cat([self.weights[i].view(-1) for i in range(self.layers)])
         L2 = torch.norm(vectorized_weights, p=2)
-        self.loss = torch.mean(-torch.log(self.prob[Yoh_ > 0])) + (param_lambda * L2)
+        negative_log_likelihood = -torch.log(self.prob[Yoh_ > 0])
+        self.loss = torch.mean(negative_log_likelihood) + (param_lambda * L2)
+
+        # Get the images which contribute the most to the loss
+        top_values, top_indices = torch.topk(torch.abs(negative_log_likelihood), k=self.loss_images_num)
+        combined_list = [(loss, index) for loss, index in zip(top_values.detach().numpy(), top_indices.detach().numpy())]
+        self.most_loss_images.extend(combined_list)
+
+        # Remove duplicates based on index
+        unique_loss_images = {}
+        for loss, index in self.most_loss_images:
+            if index not in unique_loss_images:
+                unique_loss_images[index] = loss
+
+        self.most_loss_images = [(loss, index) for index, loss in unique_loss_images.items()]
+        self.most_loss_images.sort(key=lambda x: x[0], reverse=True)
+        if len(self.most_loss_images) > self.loss_images_num:
+            self.most_loss_images = self.most_loss_images[:self.loss_images_num]
+                
 
 def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3, optimizer=optim.SGD):
     """Arguments:
@@ -47,6 +67,7 @@ def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3, optimizer
     """
     optimizer = optimizer(model.parameters(), lr=param_delta)
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=1-1e-4)
+    stored_loss = []
 
     # training loop
     for i in range(param_niter):
@@ -54,6 +75,7 @@ def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3, optimizer
         model.forward(X)
         # loss
         model.get_loss(X, Yoh_, param_lambda=param_lambda)
+        stored_loss.append(model.loss.detach().numpy())
         # gradient reset
         optimizer.zero_grad()
         # backward pass
@@ -67,6 +89,8 @@ def train(model, X, Yoh_, param_niter, param_delta, param_lambda=1e-3, optimizer
 
     if optimizer.__class__.__name__ == 'Adam':
         scheduler.step()
+    
+    return stored_loss
 
 def eval(model, X):
     """
@@ -97,12 +121,12 @@ if __name__== "__main__":
     np.random.seed(100)
 
     # define input data X and labels Yoh_
-    # X, Y_ = sample_gauss_2d(3, 100)
-    X, Y_ = sample_gmm_2d(6, 2, 1000)
+    X, Y_ = sample_gauss_2d(3, 100)
+    # X, Y_ = sample_gmm_2d(6, 2, 1000)
     Yoh_ = class_to_onehot(Y_)
     
 
-    ptlr = PTDeep([2, 10, 10, 2], torch.relu)
+    ptlr = PTDeep([2, 3], torch.relu)
 
     # learn the parameters (X and Yoh_ have to be of type torch.Tensor):
     train(ptlr, torch.Tensor(X), torch.Tensor(Yoh_), 10000, param_delta=0.1, param_lambda=1e-4)

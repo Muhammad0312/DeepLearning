@@ -17,7 +17,7 @@ b = torch.randn(1, requires_grad=True)
 # optimization procedure: gradient descent
 optimizer = optim.SGD([a, b], lr=0.01)
 
-for i in range(10000):
+for i in range(10):
     # affine regression model
     Y_ = a*X + b
 
@@ -26,11 +26,11 @@ for i in range(10000):
     # mean squared error loss
     loss = torch.sum(diff**2) / N
 
-    grad_a = sum(2*(Y-Y_)*-X)
-    grad_b = sum(2*(Y-Y_)*-1)
+    grad_a = sum(2*(Y-Y_)*-X) / N
+    grad_b = sum(2*(Y-Y_)*-1) / N
     
-    # print('Gradient wrt to a: ',grad_a)
-    # print('Gradient wrt to b: ',grad_b)
+    print('Gradient wrt to a: ',grad_a)
+    print('Gradient wrt to b: ',grad_b)
 
     # gradient reset
     optimizer.zero_grad()
@@ -42,8 +42,12 @@ for i in range(10000):
 
     # optimization step
     optimizer.step()
-    # print('Grad a: ',a.grad)
-    # print('Grad b: ',b.grad)
+    print('Grad a: ',a.grad)
+    print('Grad b: ',b.grad)
+
+    assert torch.allclose(a.grad, grad_a, atol=1e-6), 'Gradient wrt a is not correct'
+    assert torch.allclose(b.grad, grad_b, atol=1e-6), 'Gradient wrt b is not correct'
+
 
     if i % 1000 == 0:
         print(f'step: {i}, loss:{loss}')

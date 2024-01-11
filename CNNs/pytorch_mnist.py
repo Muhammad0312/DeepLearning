@@ -4,7 +4,7 @@ from torchvision.transforms import ToTensor
 from torchvision import datasets
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
-
+import pdb
 from torch.utils.tensorboard import SummaryWriter
 
 import matplotlib.pyplot as plt
@@ -54,6 +54,9 @@ class PTMNIST(nn.Module):
         return x
 
 def train(model, train_dataloader, epochs, optimizer, loss_fn, writer):
+    print('Starting Training')
+    print('Initial Accuracy: ', evaluate(model, train_dataloader)[0].item())
+    writer.add_scalar('Accuracy/train', evaluate(model, train_dataloader)[0])
     for epoch in range(epochs):
         for i, (images, labels) in enumerate(train_dataloader):
             optimizer.zero_grad()
@@ -68,19 +71,30 @@ def train(model, train_dataloader, epochs, optimizer, loss_fn, writer):
                 grid_image = make_grid(layer1_weights, nrow=4, normalize=True, scale_each=True)
                 writer.add_image(f'conv1_feature_maps_epoch_{epoch}_iteration_{i}', grid_image)
         
+        accuracy = evaluate(model, train_dataloader)[0].item()
+        print('Train Accuracy: ', accuracy)
+        writer.add_scalar('Accuracy/train', accuracy, epoch*len(train_dataloader))
+        
     print('Finished Training')
     
-def evaluate(model, test_dataloader):
-    correct = 0
-    total = 0
+def evaluate(model, data_loader):
+    confusion_matrix = torch.zeros(10, 10)
+    # determine the confusion matrix for the data_loader
     with torch.no_grad():
-        for images, labels in test_dataloader:
+        for images, labels in data_loader:
             outputs = model.forward(images)
             _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            for t, p in zip(labels.view(-1), predicted.view(-1)):
+                confusion_matrix[t.long(), p.long()] += 1
+    
+    # determine the overall accuracy using the confusion matrix
+    accuracy = confusion_matrix.diag().sum() / confusion_matrix.sum()
 
-    return correct / total
+    # determine the precision and recall for each class
+    precision = confusion_matrix.diag() / confusion_matrix.sum(0)
+    recall = confusion_matrix.diag() / confusion_matrix.sum(1)
+
+    return accuracy, confusion_matrix, precision, recall
     
 
 
@@ -96,16 +110,16 @@ if __name__ == "__main__":
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
     test_dataloader = DataLoader(test_data)
 
-    writer = SummaryWriter('CNNs/logs')
-
-
     model = PTMNIST()
 
+    # add regularisation to cross entropy loss
+    weight_decay = 0.001
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, weight_decay=weight_decay)
     
-    epochs = 1
-    
+    epochs = 10
+
+    writer = SummaryWriter(comment=f'PTMNIST_lr=0.001,weight_decay={weight_decay}')
     train(model, train_dataloader, epochs, optimizer, loss_fn, writer)
     writer.close()
 
