@@ -9,7 +9,7 @@ class _BNReluConv(nn.Sequential):
         # YOUR CODE HERE
         self.append(nn.GroupNorm(1, num_maps_in))
         self.append(nn.ReLU())
-        self.append(nn.Conv2d(num_maps_in, num_maps_out, kernel_size=3, bias=bias))
+        self.append(nn.Conv2d(num_maps_in, num_maps_out, kernel_size=k, bias=bias))
 
 
 class SimpleMetricEmbedding(nn.Module):
@@ -32,7 +32,7 @@ class SimpleMetricEmbedding(nn.Module):
         x = self.maxpool2(x)
         x = self.conv3(x)
         x = self.avgpool(x)
-        x.reshape(x.shape[0], self.emb_size)
+        x = x.view(x.size(0), -1)
         return x
 
     def loss(self, anchor, positive, negative, margin=1.0):
@@ -40,6 +40,6 @@ class SimpleMetricEmbedding(nn.Module):
         p_x = self.get_features(positive)
         n_x = self.get_features(negative)
         # YOUR CODE HERE
-        loss = torch.relu(F.pairwise_distance(a_x, p_x, p=2) - F.pairwise_distance(a_x, n_x, p=2) + margin).mean()
+        loss = F.relu(F.pairwise_distance(a_x, p_x, p=2) - F.pairwise_distance(a_x, n_x, p=2) + margin).mean()
         return loss
     

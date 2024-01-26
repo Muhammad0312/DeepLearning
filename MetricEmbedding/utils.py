@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 from collections import defaultdict
+import pdb
 PRINT_LOSS_N = 100
-
 
 def train(model, optimizer, loader, device='cuda'):
     losses = []

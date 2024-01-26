@@ -1,13 +1,15 @@
 from torch.utils.data import Dataset
 from collections import defaultdict
+from torch.utils.data import DataLoader
 from random import choice
 import torchvision
 import pdb
 import matplotlib.pyplot as plt
+import torch
 
 
 class MNISTMetricDataset(Dataset):
-    def __init__(self, root="FCNNs/mnist", split='train'):
+    def __init__(self, root="FCNNs/mnist", split='train', remove_class=None):
         super().__init__()
         assert split in ['train', 'test', 'traineval']
         self.root = root
@@ -15,6 +17,15 @@ class MNISTMetricDataset(Dataset):
         mnist_ds = torchvision.datasets.MNIST(self.root, train='train' in split, download=True)
         self.images, self.targets = mnist_ds.data.float() / 255., mnist_ds.targets
         self.classes = list(range(10))
+
+        if remove_class is not None:
+            # get indices of all images that belong to the class to be removed
+            indices_to_remove = [i for i in range(len(self.targets)) if self.targets[i].item() == remove_class]
+            # remove images and targets
+            mask = torch.ones_like(self.targets, dtype=torch.bool)
+            mask[indices_to_remove] = 0
+            self.targets = self.targets[mask]
+            self.images = self.images[mask]
 
         self.target2indices = defaultdict(list)
         for i in range(len(self.images)):
@@ -53,7 +64,7 @@ class MNISTMetricDataset(Dataset):
         return len(self.images)
     
 if __name__ == '__main__':
-    dataset = MNISTMetricDataset()
+    dataset = MNISTMetricDataset(remove_class=0)
     while True:
         random_idx = choice(range(len(dataset)))
         anchor, positive, negative, target_id = dataset[random_idx]

@@ -16,7 +16,8 @@ if __name__ == '__main__':
 
     # CHANGE ACCORDING TO YOUR PREFERENCE
     mnist_download_root = "FCNNs/mnist"
-    ds_train = MNISTMetricDataset(mnist_download_root, split='train')
+    ds_train = MNISTMetricDataset(mnist_download_root, split='train', remove_class=0)
+    ds_train_rep = MNISTMetricDataset(mnist_download_root, split='train')
     ds_test = MNISTMetricDataset(mnist_download_root, split='test')
     ds_traineval = MNISTMetricDataset(mnist_download_root, split='traineval')
 
@@ -27,6 +28,15 @@ if __name__ == '__main__':
 
     train_loader = DataLoader(
         ds_train,
+        batch_size=64,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=4,
+        drop_last=True
+    )
+
+    train_rep_loader = DataLoader(
+        ds_train_rep,
         batch_size=64,
         shuffle=True,
         pin_memory=True,
@@ -65,7 +75,7 @@ if __name__ == '__main__':
         print(f"Mean Loss in Epoch {epoch}: {train_loss:.3f}")
         if EVAL_ON_TEST or EVAL_ON_TRAIN:
             print("Computing mean representations for evaluation...")
-            representations = compute_representations(model, train_loader, num_classes, emb_size, device)
+            representations = compute_representations(model, train_rep_loader, num_classes, emb_size, device)
         if EVAL_ON_TRAIN:
             print("Evaluating on training set...")
             acc1 = evaluate(model, representations, traineval_loader, device)
@@ -78,4 +88,4 @@ if __name__ == '__main__':
         print(f"Epoch time (sec): {(t1-t0)/10**9:.1f}")
     
     # Save the model parameters
-    torch.save(model.state_dict(), 'MetricEmbedding/model_params/model.pth')
+    torch.save(model.state_dict(), 'MetricEmbedding/model_params/model_without_zeros.pth')
