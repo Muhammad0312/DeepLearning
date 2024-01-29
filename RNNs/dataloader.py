@@ -111,6 +111,7 @@ class Vocab:
             self.stoi = {'<PAD>': 0, '<UNK>': 1}
         
         for item in self.freqs.items():
+            # Min frequency and max size not implemented
             # if self.max_size != -1 and len(self.stoi.item()) >= self.max_size:
             #     break
             word, freq = item

@@ -1,0 +1,9 @@
+Cell type: LSTM, Hidden size: 200, Num layers: 6, Dropout: 0.25, Bidirectional: False, Accuracy: 76.94
+Cell type: LSTM, Hidden size: 50, Num layers: 6, Dropout: 0.5, Bidirectional: False, Accuracy: 75.34
+Cell type: LSTM, Hidden size: 200, Num layers: 6, Dropout: 0.0, Bidirectional: False, Accuracy: 76.33
+Cell type: GRU, Hidden size: 300, Num layers: 2, Dropout: 0.25, Bidirectional: False, Accuracy: 78.64
+Cell type: GRU, Hidden size: 300, Num layers: 2, Dropout: 0.5, Bidirectional: False, Accuracy: 78.8
+Cell type: GRU, Hidden size: 150, Num layers: 3, Dropout: 0.0, Bidirectional: False, Accuracy: 79.41
+Cell type: RNN, Hidden size: 300, Num layers: 3, Dropout: 0.0, Bidirectional: False, Accuracy: 75.73
+Cell type: RNN, Hidden size: 200, Num layers: 5, Dropout: 0.25, Bidirectional: False, Accuracy: 75.51
+Cell type: RNN, Hidden size: 200, Num layers: 6, Dropout: 0.5, Bidirectional: False, Accuracy: 76.99

@@ -6,14 +6,28 @@ from dataloader import *
 from colors import *
 import random
 
+class BahdanauAttention(nn.Module):
+    def __init__(self, hidden_size):
+        super(BahdanauAttention, self).__init__()
+        self.W1 = nn.Linear(hidden_size, hidden_size // 2)
+        self.w2 = nn.Linear(hidden_size // 2, 1)
+
+    def forward(self, h):
+        a = self.w2(torch.tanh(self.W1(h)))
+        alpha = torch.nn.functional.softmax(a, dim=0)
+        out_attn = torch.sum(alpha * h, dim=0)
+        return out_attn
+
+
 class Recurrent(nn.Module):
-    def __init__(self, type='GRU', hidden_size=150, num_layers=2, dropout=0.5, bidirectional=False):
+    def __init__(self, type='GRU', hidden_size=150, num_layers=2, dropout=0.5, bidirectional=False, use_attention=False):
         super(Recurrent, self).__init__()
         self.type = type
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.dropout = dropout
         self.bidirectional = bidirectional
+        self.use_attention = use_attention
 
         if self.type == 'GRU':
             self.rnn = nn.GRU(input_size=300,
@@ -40,32 +54,41 @@ class Recurrent(nn.Module):
                               bidirectional=self.bidirectional
                               )
         
+        if self.use_attention:
+            self.attention = BahdanauAttention(self.hidden_size)
+        
         self.fc1 = nn.Linear(self.hidden_size, self.hidden_size)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(self.hidden_size, 1)
 
     def forward(self, x):
-        # pdb.set_trace()
         if self.type == 'LSTM':
-            _, (x, _) = self.rnn(x)
+            out, (x, _) = self.rnn(x)
         else:
-            _, x = self.rnn(x)
-    
-        x = x[-1]
+            out, x = self.rnn(x)
+
+        if self.use_attention:
+            x = self.attention(out)
+        else:
+            x = x[-1]
+
         x = self.relu(self.fc1(x))
         x = self.fc2(x)
         return x
 
-def train(model, dataloader, epochs, optimizer, loss_fn, embeddings, validation_dataloader):
-    print('Starting Training')
-    model.train()
 
+def train(model, dataloader, epochs, optimizer, loss_fn, embeddings, validation_dataloader, device):
+    print('Starting Training')
+    
     for epoch in range(epochs):
+        model.train()
         total_loss = 0
         for i, (words, labels, lengths) in enumerate(dataloader):
+            labels = labels.to(device)
+            words = words.to(device)
             optimizer.zero_grad()
             words = words.type(torch.LongTensor)
-            words = embeddings(words)
+            words = embeddings(words).to(device)
             # current shape of words is (batch_size, max_length, embedding_size)
             # convert to time first format
             words = words.transpose(1, 0)
@@ -78,21 +101,23 @@ def train(model, dataloader, epochs, optimizer, loss_fn, embeddings, validation_
             # if i % 100 == 0:
             #     print('Epoch: ', epoch, 'Batch: ', i, 'Loss: ', loss.item())
         # print('Epoch: ', epoch, 'Loss: ', total_loss/len(dataloader))
-        accuracy, CM, precision, recall, f1= evaluate(model, validation_dataloader, loss_fn, embeddings)
+        accuracy, CM, _, _ , f1= evaluate(model, validation_dataloader, loss_fn, embeddings, device)
         print(Colors.RED+f'Epoch {epoch}: Valid accuracy: {accuracy.item()}' + Colors.RESET)
         # print(CM)
     print('Finished Training')
-    return accuracy, precision, recall, f1
+    return accuracy, f1
     
 
-def evaluate(model, dataloader, loss_fn, embeddings):
+def evaluate(model, dataloader, loss_fn, embeddings, device):
     model.eval()
     confusion_matrix = torch.zeros(2, 2)
     # determine the confusion matrix for the data_loader
     with torch.no_grad():
         for i, (words, labels, lengths) in enumerate(dataloader):
+            labels = labels.to(device)
+            words = words.to(device)
             words = words.type(torch.LongTensor)
-            words = embeddings(words)
+            words = embeddings(words).to(device)
             words = words.transpose(1, 0)
             output = model.forward(words).squeeze()
             # loss = loss_fn(output, labels)
@@ -103,7 +128,7 @@ def evaluate(model, dataloader, loss_fn, embeddings):
     # determine the overall accuracy using the confusion matrix
     accuracy = confusion_matrix.diag().sum() / confusion_matrix.sum()
 
-    # determine the precision and recall for the positive class
+    # determine the precision and recall for each class
     precision = confusion_matrix[0, 0] / confusion_matrix[0, :].sum()
     recall = confusion_matrix[0, 0] / confusion_matrix[:, 0].sum()
     f1 = 2 * precision * recall / (precision + recall)
@@ -112,6 +137,7 @@ def evaluate(model, dataloader, loss_fn, embeddings):
 
 if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print('Using device:', device)
     seed=7052020
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -135,9 +161,6 @@ if __name__ == '__main__':
     word_rep = load_embeddings('RNNs/data/sst_glove_6b_300d.txt')
     word_embeddings = gen_embeddings(text_vocab.stoi, word_rep)
 
-    # transfer data to GPU if available
-
-
     # pdb.set_trace()
     loss_fn = nn.BCEWithLogitsLoss()
 
@@ -148,40 +171,14 @@ if __name__ == '__main__':
     bidirectional = [True, False]
     results = []
 
-    '''Different Seeds'''
-
-    # for i in range(5):
-    #     hidden = 150
-    #     layers = 2
-    #     drop = 0.0
-    #     bi = False
-    #     print(Colors.BLUE+f'Cell type: {cell_type[2]}, Hidden size: {hidden}, Num layers: {layers}, Dropout: {drop}, Bidirectional: {bi}'+Colors.RESET)
-    #     model = Recurrent(type=cell_type[2], hidden_size=hidden, num_layers=layers, dropout=drop, bidirectional=bi)
-    #     model.to(device)
-    #     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-    #     accuracy, precision, recall, f1 = train(model, train_dataloader, 5, optimizer, loss_fn, word_embeddings, validation_dataloader)
-    #     # round the accuracy to 2 decimal places
-    #     accuracy = accuracy.item() * 100
-    #     accuracy = round(accuracy, 2)
-    #     # save accuracy for each model in a file
-    #     results.append((seed, cell_type[2], accuracy, precision.item(), recall.item(), f1.item()))
-    #     seed = random.randint(0, 1000000)
-    #     torch.manual_seed(seed)
-    #     np.random.seed(seed)
-
-    
-    # with open('RNNs/results/rnn_seeds.txt', 'w') as f:
-    #     for item in results:
-    #         f.write(f'Seed: {item[0]}, Cell: {item[1]}, Accuracy: {item[2]}, Precision: {item[3]}, Recall: {item[4]}, F1: {item[5]}\n')
-
-    '''Different Parmas and cells'''
     for type in cell_type:
-        for i in range(20):
-            hidden = random.choice(hidden_size)
-            layers = random.choice(num_layers)
-            drop = random.choice(dropout)
-            print(Colors.BLUE+f'Cell type: {type}, Hidden size: {hidden}, Num layers: {layers}, Dropout: {drop}, Bidirectional: {False}'+Colors.RESET)
-            model = Recurrent(type=type, hidden_size=hidden, num_layers=layers, dropout=drop, bidirectional=False)
+        for i in range(2):
+            hidden = 150
+            layers = 2
+            drop = 0.0
+            attn = random.choice([True, True])  # Include attention or not
+            print(Colors.BLUE+f'Cell type: {type}, Hidden size: {hidden}, Num layers: {layers}, Dropout: {drop}, Bidirectional: {False}, Attention: {attn}'+Colors.RESET)
+            model = Recurrent(type=type, hidden_size=hidden, num_layers=layers, dropout=drop, bidirectional=False, use_attention=attn)
             model.to(device)
             optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
             accuracy, f1 = train(model, train_dataloader, 5, optimizer, loss_fn, word_embeddings, validation_dataloader, device)
@@ -189,10 +186,10 @@ if __name__ == '__main__':
             accuracy = accuracy.item() * 100
             accuracy = round(accuracy, 2)
             # save accuracy for each model in a file
-            results.append((type, hidden, layers, drop, False, accuracy, f1.item()))
+            results.append((type, hidden, layers, drop, False, accuracy, f1.item(), attn))
         
     # save the results list to a file
-    with open('RNNs/results/rnn_params.txt', 'w') as f:
+    with open('RNNs/results/Attentionresults.txt', 'w') as f:
         for item in results:
             f.write(f'Cell type: {item[0]}, Hidden size: {item[1]}, Num layers: {item[2]}, Dropout: {item[3]}, Bidirectional: {item[4]}, Accuracy: {item[5]}, F1 score: {item[6]}\n')
 

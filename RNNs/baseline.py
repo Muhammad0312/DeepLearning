@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from dataloader import *
 import pdb
 import numpy as np
+from colors import *
 
 class BaseLine(nn.Module):
     def __init__(self):
@@ -39,10 +40,11 @@ def train(model, dataloader, epochs, optimizer, loss_fn, embeddings, validation_
             # if i % 100 == 0:
                 # print('Epoch: ', epoch, 'Batch: ', i, 'Loss: ', loss.item())
         # print('Epoch: ', epoch, 'Loss: ', total_loss/len(dataloader))
-        accuracy, CM, _, _ = evaluate(model, validation_dataloader, loss_fn, embeddings)
-        print('Epoch ', epoch, ': Valid accuracy: ', accuracy.item())
+        accuracy, CM, precision, recall, f1= evaluate(model, validation_dataloader, loss_fn, embeddings)
+        print(Colors.RED+f'Epoch {epoch}: Valid accuracy: {accuracy.item()}' + Colors.RESET)
         # print(CM)
     print('Finished Training')
+    return accuracy, precision, recall, f1
 
 def evaluate(model, dataloader, loss_fn, embeddings):
     model.eval()
@@ -62,10 +64,11 @@ def evaluate(model, dataloader, loss_fn, embeddings):
     accuracy = confusion_matrix.diag().sum() / confusion_matrix.sum()
 
     # determine the precision and recall for each class
-    precision = confusion_matrix.diag() / confusion_matrix.sum(0)
-    recall = confusion_matrix.diag() / confusion_matrix.sum(1)
+    precision = confusion_matrix[0, 0] / confusion_matrix[0, :].sum()
+    recall = confusion_matrix[0, 0] / confusion_matrix[:, 0].sum()
+    f1 = 2 * precision * recall / (precision + recall)
 
-    return accuracy, confusion_matrix, precision, recall
+    return accuracy, confusion_matrix, precision, recall, f1
 
 if __name__ == '__main__':
     seed=7052020
@@ -90,11 +93,21 @@ if __name__ == '__main__':
 
     word_rep = load_embeddings('RNNs/data/sst_glove_6b_300d.txt')
     word_embeddings = gen_embeddings(text_vocab.stoi, word_rep)
-
-    # pdb.set_trace()
-
-    model = BaseLine()
+    
     loss_fn = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    
+    results = []
 
-    train(model, train_dataloader, 5, optimizer, loss_fn, word_embeddings, validation_dataloader)
+    for i in range(5):
+        model = BaseLine()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+        accuracy, precision, recall, f1 = train(model, train_dataloader, 5, optimizer, loss_fn, word_embeddings, validation_dataloader)
+        results.append([seed, accuracy, precision, recall, f1])
+        # generate a random seed
+        seed = np.random.randint(0, 1000000)
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+    
+    with open('RNNs/results/baseline_seeds.txt', 'w') as f:
+        for result in results:
+            f.write(f'Seed: {result[0]}, Accuracy: {result[1]}, Precision: {result[2]}, Recall: {result[3]}, F1 Score: {result[4]}' + '\n')

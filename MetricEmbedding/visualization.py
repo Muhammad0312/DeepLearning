@@ -28,7 +28,7 @@ if __name__ == '__main__':
     emb_size = 32
     model = SimpleMetricEmbedding(1, emb_size).to(device)
     # YOUR CODE HERE
-    model.load_state_dict(torch.load("MetricEmbedding/model_params/model.pth"))
+    model.load_state_dict(torch.load("MetricEmbedding/model_params/model0.pth"))
 
     colormap = get_colormap()
     mnist_download_root = "FCNNs/mnist"
